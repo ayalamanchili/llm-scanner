@@ -16,7 +16,7 @@ echo "╔═══════════════════════�
 echo "║  Downloading model: ${MODEL_ID}"
 echo "╚══════════════════════════════════════════════════╝"
 
-pip install --quiet huggingface_hub[cli]
+pip install --quiet huggingface_hub[hf_xet]
 
 # Build auth args if token is available
 AUTH_ARGS=()
@@ -27,12 +27,23 @@ else
     echo "⚠ No HF_TOKEN set — only public models will work"
 fi
 
-# Download using huggingface-cli (handles LFS, shards, etc.)
+# Download using hf CLI (huggingface-cli is deprecated in hub >= 1.x)
 mkdir -p "$MODEL_CACHE_DIR"
 
-huggingface-cli download "$MODEL_ID" \
+# Try new `hf` CLI first, fall back to `huggingface-cli` for older installs
+if command -v hf &> /dev/null; then
+    HF_CMD="hf"
+elif command -v huggingface-cli &> /dev/null; then
+    HF_CMD="huggingface-cli"
+else
+    echo "✗ ERROR: Neither 'hf' nor 'huggingface-cli' found"
+    exit 1
+fi
+
+echo "→ Using CLI: $HF_CMD"
+
+$HF_CMD download "$MODEL_ID" \
     --local-dir "$MODEL_CACHE_DIR" \
-    --local-dir-use-symlinks False \
     "${AUTH_ARGS[@]}" \
     2>&1 | tail -20
 
