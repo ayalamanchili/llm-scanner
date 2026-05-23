@@ -1,0 +1,39 @@
+# -------------------------------------------------------------------
+# Garak — LLM Vulnerability Scanner
+# https://github.com/NVIDIA/garak
+#
+# This config is read by tool_runner.sh for display purposes.
+# Actual execution logic is in run.sh.
+# -------------------------------------------------------------------
+
+name: garak
+version: ">=0.9"
+description: >
+  NVIDIA Garak — a vulnerability scanner for LLMs.
+  Probes models for prompt injection, data leakage,
+  encoding attacks, jailbreaks, hallucination, and more.
+
+homepage: https://github.com/NVIDIA/garak
+
+# Default probe families to run (override via GARAK_PROBES env var)
+default_probes:
+  - encoding
+  - dan
+  - glitch
+  - knownbadsignatures
+  - promptinject
+  - replay
+
+# Supported model types
+supported_model_types:
+  - huggingface
+  - openai
+  - replicate
+  - cohere
+  - ggml
+
+# Resource requirements
+resources:
+  min_ram_gb: 8
+  gpu_recommended: true
+  estimated_time_minutes: 15-120

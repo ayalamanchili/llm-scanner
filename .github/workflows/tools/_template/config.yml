@@ -1,0 +1,25 @@
+# -------------------------------------------------------------------
+# Tool Template — Copy this folder to tools/<your-tool-name>/
+# -------------------------------------------------------------------
+
+name: my-tool
+version: ">=1.0"
+description: >
+  A brief description of what this tool scans for.
+
+homepage: https://github.com/org/my-tool
+
+# Default configuration
+defaults:
+  severity_threshold: medium
+
+# Supported model types
+supported_model_types:
+  - huggingface
+  - openai
+
+# Resource requirements
+resources:
+  min_ram_gb: 4
+  gpu_recommended: false
+  estimated_time_minutes: 5-30
