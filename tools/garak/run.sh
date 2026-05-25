@@ -81,13 +81,14 @@ fi
 # Report prefix — garak v0.15+ resolves --report_prefix relative to its own
 # garak_runs/ directory (~/.local/share/garak/garak_runs/), NOT the cwd.
 # Use an absolute path so it writes where we expect.
-RESULTS_DIR_ABS="$(cd "$RESULTS_DIR" 2>/dev/null && pwd || mkdir -p "$RESULTS_DIR" && cd "$RESULTS_DIR" && pwd)"
+mkdir -p "$RESULTS_DIR"
+RESULTS_DIR_ABS="$(cd "$RESULTS_DIR" && pwd)"
 GARAK_REPORT_PREFIX="$RESULTS_DIR_ABS/garak_report"
 
 # Also pre-create the directory inside garak_runs in case garak still
 # resolves relative to it
 GARAK_HOME="${HOME}/.local/share/garak"
-mkdir -p "$GARAK_HOME/garak_runs" "$RESULTS_DIR_ABS"
+mkdir -p "$GARAK_HOME/garak_runs"
 
 GARAK_ARGS+=(--report_prefix "$GARAK_REPORT_PREFIX")
 
