@@ -73,16 +73,35 @@ jobs:
           MODEL_CACHE_DIR: ./model_cache
 
   # -------------------------------------------------------------------
-  # Stage 2: Run security scans (matrix over selected tools)
+  # Stage 2: Prepare scan tool matrix
+  # -------------------------------------------------------------------
+  prepare-matrix:
+    name: "🔧 Prepare Matrix"
+    runs-on: ubuntu-latest
+    outputs:
+      tool_matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Build tool matrix from input
+        id: set-matrix
+        run: |
+          # Convert comma-separated SCAN_TOOLS into a proper JSON array
+          # e.g. "garak,other" -> ["garak","other"]
+          TOOLS="${{ github.event.inputs.scan_tools || 'garak' }}"
+          JSON=$(echo "$TOOLS" | tr -d ' ' | jq -R 'split(",")' )
+          echo "matrix=$JSON" >> "$GITHUB_OUTPUT"
+          echo "Generated matrix: $JSON"
+
+  # -------------------------------------------------------------------
+  # Stage 3: Run security scans (matrix over selected tools)
   # -------------------------------------------------------------------
   scan:
     name: "🔍 Scan: ${{ matrix.tool }}"
-    needs: download-model
+    needs: [download-model, prepare-matrix]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        tool: ${{ fromJson(format('["{0}"]', join(fromJson(format('["{0}"]', github.event.inputs.scan_tools || 'garak')), '","'))) }}
+        tool: ${{ fromJson(needs.prepare-matrix.outputs.tool_matrix) }}
     steps:
       - uses: actions/checkout@v4
 
@@ -115,7 +134,7 @@ jobs:
           retention-days: 30
 
   # -------------------------------------------------------------------
-  # Stage 3: Aggregate results and produce summary
+  # Stage 4: Aggregate results and produce summary
   # -------------------------------------------------------------------
   report:
     name: "📊 Generate Report"

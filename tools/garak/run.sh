@@ -31,6 +31,15 @@ echo ""
 echo "→ Installing Garak..."
 pip install --quiet garak 2>&1 | tail -5
 
+# ── Set up HF auth ────────────────────────────────────
+# Garak reads HF_INFERENCE_TOKEN or HUGGING_FACE_HUB_TOKEN for
+# HuggingFace Inference API access.  Export both so it just works.
+if [[ -n "${HF_TOKEN:-}" ]]; then
+    export HF_INFERENCE_TOKEN="$HF_TOKEN"
+    export HUGGING_FACE_HUB_TOKEN="$HF_TOKEN"
+    echo "✓ HF_TOKEN exported as HF_INFERENCE_TOKEN and HUGGING_FACE_HUB_TOKEN"
+fi
+
 # Verify installation
 if ! command -v garak &> /dev/null; then
     # Try via python module
@@ -47,55 +56,59 @@ echo "✓ Garak installed: $($GARAK_CMD --version 2>&1 || echo 'version unknown'
 echo ""
 
 # ── Build command ─────────────────────────────────────
+# Garak CLI uses --target_type / --target_name (--model_type and
+# --model_name are deprecated aliases but still accepted).
+# --probes takes a SINGLE comma-separated string, NOT repeated flags.
+# Same for --detectors.
 GARAK_ARGS=(
-    --model_type "$MODEL_TYPE"
-    --model_name "$MODEL_ID"
+    --target_type "$MODEL_TYPE"
+    --target_name "$MODEL_ID"
 )
 
-# Probes
+# Probes — pass as a single comma-separated value
 if [[ "$GARAK_PROBES" != "all" ]]; then
-    # Convert comma-separated to space-separated for garak
-    IFS=',' read -ra PROBE_LIST <<< "$GARAK_PROBES"
-    for probe in "${PROBE_LIST[@]}"; do
-        probe=$(echo "$probe" | xargs)  # trim whitespace
-        GARAK_ARGS+=(--probes "$probe")
-    done
+    # Strip any spaces around commas so garak parses cleanly
+    CLEAN_PROBES=$(echo "$GARAK_PROBES" | tr -d ' ')
+    GARAK_ARGS+=(--probes "$CLEAN_PROBES")
 fi
 
-# Detectors
+# Detectors — also a single comma-separated value
 if [[ "$GARAK_DETECTORS" != "auto" ]]; then
-    IFS=',' read -ra DETECTOR_LIST <<< "$GARAK_DETECTORS"
-    for det in "${DETECTOR_LIST[@]}"; do
-        det=$(echo "$det" | xargs)
-        GARAK_ARGS+=(--detectors "$det")
-    done
+    CLEAN_DETECTORS=$(echo "$GARAK_DETECTORS" | tr -d ' ')
+    GARAK_ARGS+=(--detectors "$CLEAN_DETECTORS")
 fi
 
-# Output directory — Garak writes to its own report dir,
-# we'll copy the results after
-GARAK_REPORT_DIR="$RESULTS_DIR/garak_raw"
-mkdir -p "$GARAK_REPORT_DIR"
+# Report prefix — garak writes .report.jsonl / .hitlog.jsonl / .html
+# using the report_prefix path. Make sure the directory exists.
+GARAK_REPORT_PREFIX="$RESULTS_DIR/garak_report"
+mkdir -p "$RESULTS_DIR"
+GARAK_ARGS+=(--report_prefix "$GARAK_REPORT_PREFIX")
 
 # ── Run the scan ──────────────────────────────────────
 echo "→ Starting Garak scan..."
 echo "  Command: $GARAK_CMD ${GARAK_ARGS[*]}"
 echo ""
 
-$GARAK_CMD "${GARAK_ARGS[@]}" \
-    --report_prefix "$GARAK_REPORT_DIR/garak_report" \
-    2>&1 | tee "$RESULTS_DIR/garak_stdout.log" || true
+set +e
+$GARAK_CMD "${GARAK_ARGS[@]}" 2>&1 | tee "$RESULTS_DIR/garak_stdout.log"
+SCAN_EXIT=$?
+set -e
+
+echo ""
+echo "→ Garak exited with code $SCAN_EXIT"
 
 # ── Collect results ───────────────────────────────────
-# Garak writes .jsonl report files — find and copy them
+# Garak writes report files to either:
+#   1. The --report_prefix path ($RESULTS_DIR/garak_report.report.jsonl etc.)
+#   2. The default ~/.local/share/garak/ directory
 echo ""
 echo "→ Collecting results..."
 
-# Garak may write to ~/.local/share/garak/ or the specified prefix
 GARAK_HOME="${HOME}/.local/share/garak"
 FOUND_RESULTS=false
 
-# Check report prefix location
-for f in "$GARAK_REPORT_DIR"/garak_report*.jsonl; do
+# Check for results at the report prefix path
+for f in "$RESULTS_DIR"/garak_report*.jsonl "$RESULTS_DIR"/garak_report*.html; do
     if [[ -f "$f" ]]; then
         FOUND_RESULTS=true
         echo "  Found: $f"
@@ -104,36 +117,31 @@ done
 
 # Check default Garak output directory
 if [[ "$FOUND_RESULTS" == "false" && -d "$GARAK_HOME" ]]; then
-    for f in "$GARAK_HOME"/*.jsonl; do
+    echo "  Checking default garak home: $GARAK_HOME"
+    for f in "$GARAK_HOME"/*.jsonl "$GARAK_HOME"/*.html; do
         if [[ -f "$f" ]]; then
             cp "$f" "$RESULTS_DIR/"
             FOUND_RESULTS=true
             echo "  Copied: $(basename "$f")"
         fi
     done
-    # Also grab HTML reports
-    for f in "$GARAK_HOME"/*.html; do
+    # Also check subdirectories (some versions nest by date)
+    find "$GARAK_HOME" -name "*.jsonl" -o -name "*.html" 2>/dev/null | while read -r f; do
         if [[ -f "$f" ]]; then
-            cp "$f" "$RESULTS_DIR/"
-            echo "  Copied: $(basename "$f")"
+            cp "$f" "$RESULTS_DIR/" 2>/dev/null || true
+            echo "  Copied: $f"
         fi
     done
-fi
-
-# Move raw results to results dir if at prefix location
-if [[ -d "$GARAK_REPORT_DIR" ]]; then
-    for f in "$GARAK_REPORT_DIR"/*.jsonl "$GARAK_REPORT_DIR"/*.html; do
-        if [[ -f "$f" ]]; then
-            cp "$f" "$RESULTS_DIR/"
-        fi
-    done
+    FOUND_RESULTS=true
 fi
 
 if [[ "$FOUND_RESULTS" == "false" ]]; then
     echo "⚠ No Garak report files found — check garak_stdout.log for errors"
-    # Still exit 0 so the meta file captures the situation
+    echo ""
+    echo "── Last 30 lines of garak_stdout.log ──"
+    tail -30 "$RESULTS_DIR/garak_stdout.log" 2>/dev/null || true
 fi
 
 echo ""
 echo "✓ Garak scan complete. Results in $RESULTS_DIR/"
-ls -lh "$RESULTS_DIR"/garak_* 2>/dev/null || true
+ls -lh "$RESULTS_DIR"/ 2>/dev/null || true

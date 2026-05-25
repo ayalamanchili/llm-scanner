@@ -57,11 +57,14 @@ export MODEL_TYPE="${MODEL_TYPE:-huggingface}"
 export RESULTS_DIR
 export TOOL_DIR
 
-# Run the tool
+# Run the tool — allow non-zero exit (garak returns non-zero when
+# it finds vulnerabilities, which is expected behavior, not an error)
 START_TIME=$(date +%s)
 
+set +e
 bash "$TOOL_DIR/run.sh"
 EXIT_CODE=$?
+set -e
 
 END_TIME=$(date +%s)
 DURATION=$((END_TIME - START_TIME))
