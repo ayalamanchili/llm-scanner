@@ -83,11 +83,14 @@ jobs:
     steps:
       - name: Build tool matrix from input
         id: set-matrix
+        shell: bash
         run: |
           # Convert comma-separated SCAN_TOOLS into a proper JSON array
           # e.g. "garak,other" -> ["garak","other"]
           TOOLS="${{ github.event.inputs.scan_tools || 'garak' }}"
-          JSON=$(echo "$TOOLS" | tr -d ' ' | jq -R 'split(",")' )
+          IFS=',' read -ra ARR <<< "$(echo "$TOOLS" | tr -d ' ')"
+          JSON=$(printf ',"%s"' "${ARR[@]}")
+          JSON="[${JSON:1}]"
           echo "matrix=$JSON" >> "$GITHUB_OUTPUT"
           echo "Generated matrix: $JSON"
 
