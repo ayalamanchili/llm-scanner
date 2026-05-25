@@ -78,10 +78,17 @@ if [[ "$GARAK_DETECTORS" != "auto" ]]; then
     GARAK_ARGS+=(--detectors "$CLEAN_DETECTORS")
 fi
 
-# Report prefix — garak writes .report.jsonl / .hitlog.jsonl / .html
-# using the report_prefix path. Make sure the directory exists.
-GARAK_REPORT_PREFIX="$RESULTS_DIR/garak_report"
-mkdir -p "$RESULTS_DIR"
+# Report prefix — garak v0.15+ resolves --report_prefix relative to its own
+# garak_runs/ directory (~/.local/share/garak/garak_runs/), NOT the cwd.
+# Use an absolute path so it writes where we expect.
+RESULTS_DIR_ABS="$(cd "$RESULTS_DIR" 2>/dev/null && pwd || mkdir -p "$RESULTS_DIR" && cd "$RESULTS_DIR" && pwd)"
+GARAK_REPORT_PREFIX="$RESULTS_DIR_ABS/garak_report"
+
+# Also pre-create the directory inside garak_runs in case garak still
+# resolves relative to it
+GARAK_HOME="${HOME}/.local/share/garak"
+mkdir -p "$GARAK_HOME/garak_runs" "$RESULTS_DIR_ABS"
+
 GARAK_ARGS+=(--report_prefix "$GARAK_REPORT_PREFIX")
 
 # ── Run the scan ──────────────────────────────────────
