@@ -17,13 +17,15 @@ set -euo pipefail
 
 GARAK_PROBES="${GARAK_PROBES:-all}"
 GARAK_DETECTORS="${GARAK_DETECTORS:-auto}"
+GARAK_GENERATIONS="${GARAK_GENERATIONS:-5}"
 RESULTS_DIR="${RESULTS_DIR:-./results}"
 
 echo "── Garak Configuration ──────────────────────────"
-echo "  Model:     $MODEL_ID"
-echo "  Type:      $MODEL_TYPE"
-echo "  Probes:    $GARAK_PROBES"
-echo "  Detectors: $GARAK_DETECTORS"
+echo "  Model:       $MODEL_ID"
+echo "  Type:        $MODEL_TYPE"
+echo "  Probes:      $GARAK_PROBES"
+echo "  Detectors:   $GARAK_DETECTORS"
+echo "  Generations: $GARAK_GENERATIONS"
 echo "─────────────────────────────────────────────────"
 echo ""
 
@@ -91,6 +93,9 @@ GARAK_HOME="${HOME}/.local/share/garak"
 mkdir -p "$GARAK_HOME/garak_runs"
 
 GARAK_ARGS+=(--report_prefix "$GARAK_REPORT_PREFIX")
+
+# Generations — limits how many outputs per probe (controls runtime)
+GARAK_ARGS+=(--generations "$GARAK_GENERATIONS")
 
 # ── Run the scan ──────────────────────────────────────
 echo "→ Starting Garak scan..."

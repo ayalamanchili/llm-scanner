@@ -16,13 +16,17 @@ on:
         required: true
         default: "garak"
       garak_probes:
-        description: "Garak probe families (comma-separated, or 'all')"
+        description: "Garak probe families (comma-separated, or 'all'). Use 'all' with caution — it can take 6+ hours."
         required: false
-        default: "all"
+        default: "dan,promptinject,encoding,misleading,malwaregen"
       garak_detectors:
         description: "Garak detectors ('auto' = probe defaults)"
         required: false
         default: "auto"
+      garak_generations:
+        description: "Number of generations per probe (lower = faster, default 5)"
+        required: false
+        default: "5"
       model_type:
         description: "Model type/backend for Garak (huggingface, openai, etc.)"
         required: false
@@ -31,8 +35,9 @@ on:
 env:
   MODEL_ID: ${{ github.event.inputs.model_id || 'gpt2' }}
   SCAN_TOOLS: ${{ github.event.inputs.scan_tools || 'garak' }}
-  GARAK_PROBES: ${{ github.event.inputs.garak_probes || 'all' }}
+  GARAK_PROBES: ${{ github.event.inputs.garak_probes || 'dan,promptinject,encoding,misleading,malwaregen' }}
   GARAK_DETECTORS: ${{ github.event.inputs.garak_detectors || 'auto' }}
+  GARAK_GENERATIONS: ${{ github.event.inputs.garak_generations || '5' }}
   MODEL_TYPE: ${{ github.event.inputs.model_type || 'huggingface' }}
   HF_TOKEN: ${{ secrets.HF_TOKEN }}
 
@@ -101,6 +106,7 @@ jobs:
     name: "🔍 Scan: ${{ matrix.tool }}"
     needs: [download-model, prepare-matrix]
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
