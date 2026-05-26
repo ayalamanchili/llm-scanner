@@ -106,7 +106,6 @@ jobs:
     name: "🔍 Scan: ${{ matrix.tool }}"
     needs: [download-model, prepare-matrix]
     runs-on: ubuntu-latest
-    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
